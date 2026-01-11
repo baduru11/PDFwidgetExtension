@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Local PDF Widget Pro",
+  "version": "2.2",
+  "permissions": ["storage", "tabs"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Local PDF Widget",
+    "default_popup": "popup.html"
+  }
+}
