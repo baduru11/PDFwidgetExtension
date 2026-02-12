@@ -13,7 +13,7 @@
       --hover-bg: rgba(255, 255, 255, 0.05);
       --selected-bg: rgba(10, 132, 255, 0.15);
     }
-    body { 
+    body {
       background: var(--bg); color: var(--text);
       font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       margin: 0; padding: 12px;
@@ -23,11 +23,11 @@
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
     }
-    .header { 
+    .header {
       display: flex; gap: 8px;
-      align-items: center; margin-bottom: 10px; 
+      align-items: center; margin-bottom: 10px;
     }
-    
+
     .breadcrumbs {
       display: flex; flex-wrap: nowrap; gap: 4px;
       font-size: 11px; font-weight: 600;
@@ -72,14 +72,14 @@
     .header-col.active { color: var(--accent); }
     .header-col[data-sort="date"] { justify-content: flex-end; }
 
-    .file-list { 
-      flex-grow: 1; overflow-y: auto; list-style: none; 
+    .file-list {
+      flex-grow: 1; overflow-y: auto; list-style: none;
       padding: 0; margin: 0;
       border: 1px solid var(--border);
       border-radius: 0 0 8px 8px;
     }
     #recent-list { border-radius: 8px; margin-bottom: 8px; }
-    
+
     .file-item {
       display: grid;
       grid-template-columns: 1fr 90px;
@@ -95,7 +95,7 @@
     .file-item:active { transform: scale(0.995); }
     .file-item.selected { background: var(--selected-bg); border-left: 2px solid var(--accent); }
     .file-item:last-child { border-bottom: none; }
-    
+
     .file-name { overflow: hidden; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
     .name-row { display: flex; align-items: center; gap: 8px; }
     .name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -104,7 +104,7 @@
 
     .folder .file-name { color: var(--accent); font-weight: 500; }
     .highlight { color: #fff; background: rgba(10, 132, 255, 0.4); border-radius: 2px; font-weight: 600; }
-    
+
     .section-title {
       font-size: 10px; font-weight: 800; color: #555;
       text-transform: uppercase; margin: 8px 0 6px 4px;
@@ -117,7 +117,7 @@
       font-weight: 600; font-size: 11px; transition: 0.2s;
     }
     .btn-primary:hover { filter: brightness(1.1); }
-    
+
     .btn-icon {
       background: transparent; color: #666; border: 1px solid transparent;
       padding: 6px; border-radius: 6px; cursor: pointer;
@@ -139,7 +139,7 @@
     .menu-item:hover { background: var(--accent); color: white; }
     .menu-item.danger:hover { background: #ff453a; }
     .menu-sep { height: 1px; background: #333; margin: 5px 0; }
-    
+
     /* Refresh Animation */
     @keyframes spin { 100% { transform: rotate(360deg); } }
     .spinning { animation: spin 0.6s linear infinite; }
@@ -157,10 +157,10 @@
 </head>
 <body>
   <div class="header">
-    <button id="btn-back" class="btn-icon" title="Go Back">←</button>
+    <button id="btn-back" class="btn-icon" title="Go Back">&#8592;</button>
     <div id="breadcrumbs" class="breadcrumbs"></div>
-    <button id="btn-refresh" class="btn-icon" title="Refresh Folder">↻</button>
-    <button id="btn-select" class="btn-primary">Change 📂</button>
+    <button id="btn-refresh" class="btn-icon" title="Refresh Folder">&#8635;</button>
+    <button id="btn-select" class="btn-primary">Change &#128194;</button>
   </div>
 
   <div class="search-container">
@@ -181,16 +181,16 @@
     <div class="header-col" data-sort="name">Name <span class="sort-icon"></span></div>
     <div class="header-col" data-sort="date">Date <span class="sort-icon"></span></div>
   </div>
-  
+
   <ul id="file-list" class="file-list"></ul>
 
   <div id="context-menu">
-    <div class="menu-item" data-action="open"><span>📂</span> Open</div>
+    <div class="menu-item" data-action="open"><span>&#128194;</span> Open</div>
     <div class="menu-sep"></div>
-    <div class="menu-item" data-action="rename"><span>✏️</span> Rename</div>
-    <div class="menu-item" data-action="copyname"><span>📋</span> Copy Name</div>
+    <div class="menu-item" data-action="rename"><span>&#9999;&#65039;</span> Rename</div>
+    <div class="menu-item" data-action="copyname"><span>&#128203;</span> Copy Name</div>
     <div class="menu-sep"></div>
-    <div class="menu-item danger" data-action="delete"><span>🗑️</span> Delete</div>
+    <div class="menu-item danger" data-action="delete"><span>&#128465;&#65039;</span> Delete</div>
   </div>
 
   <script src="popup.js"></script>

@@ -26,28 +26,41 @@ document.addEventListener('DOMContentLoaded', async () => {
         const cached = await getCache("root");
         if (cached.length) renderList(cached);
         loadFiles(folderHandle);
+    } else {
+        showNoFolderMessage();
     }
     loadRecentFiles();
 });
 
-// 2. LISTENERS
+function showNoFolderMessage() {
+    list.innerHTML = '<li style="text-align:center; padding:20px; color:#888; font-size:11px;">No folder selected. Click <b>Change &#128194;</b> to pick one.</li>';
+}
+
+// 2. FOLDER SELECTION — try native picker directly, fallback to helper window
 btnSelect.onclick = async () => {
     try {
         const dirHandle = await window.showDirectoryPicker();
         await saveFolder(dirHandle);
-        dirStack = [];
         currentHandle = dirHandle;
+        dirStack = [];
+        searchBar.value = '';
+        globalStatus.textContent = '';
         loadFiles(dirHandle);
-    } catch (err) {}
+    } catch (err) {
+        // User cancelled the dialog — do nothing
+    }
 };
 
 btnBack.onclick = () => goBack();
 btnRefresh.onclick = async () => {
+    if (!currentHandle) {
+        showNoFolderMessage();
+        return;
+    }
     btnRefresh.classList.add('spinning');
-    searchBar.value = ''; // Clear search on refresh
+    searchBar.value = '';
     globalStatus.textContent = '';
-    
-    // Force permission check before loading
+
     try {
         const status = await currentHandle.requestPermission({ mode: 'read' });
         if (status === 'granted') {
@@ -74,7 +87,7 @@ function updateSortUI() {
     headerCols.forEach(col => {
         col.classList.toggle('active', col.dataset.sort === sortBy);
         const icon = col.querySelector('.sort-icon');
-        if (icon) icon.textContent = sortBy === col.dataset.sort ? (sortDesc ? ' ↓' : ' ↑') : '';
+        if (icon) icon.textContent = sortBy === col.dataset.sort ? (sortDesc ? ' \u2193' : ' \u2191') : '';
     });
 }
 
@@ -93,7 +106,7 @@ document.addEventListener('keydown', (e) => {
     }
     if (e.key === 'ArrowDown') { e.preventDefault(); selectItem(selectedIndex + 1); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); selectItem(selectedIndex - 1); }
-    else if (e.key === 'Enter') { 
+    else if (e.key === 'Enter') {
         const items = list.querySelectorAll('.file-item');
         if (selectedIndex >= 0 && items[selectedIndex]) items[selectedIndex].click();
     }
@@ -145,7 +158,7 @@ async function loadFiles(dirHandle) {
             if (a.kind !== b.kind) return a.kind === 'directory' ? -1 : 1;
             return sortDesc ? -res : res;
         });
-        
+
         allEntries = entries;
         saveCache(cacheKey, allEntries);
         renderList(allEntries);
@@ -175,36 +188,41 @@ function renderBreadcrumbs() {
     });
 }
 
+function escapeHtml(str) {
+    return str.replace(/[<>&"']/g, c => ({ '<':'&lt;', '>':'&gt;', '&':'&amp;', '"':'&quot;', "'": '&#39;' })[c]);
+}
+
 function highlightText(text, term) {
-    if (!term) return text;
-    const regex = new RegExp(`(${term})`, 'gi');
-    return text.replace(regex, '<span class="highlight">$1</span>');
+    const escaped = escapeHtml(text);
+    if (!term) return escaped;
+    const regex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    return escaped.replace(regex, '<span class="highlight">$1</span>');
 }
 
 function renderList(entries, targetList = list) {
     const term = targetList === list ? searchBar.value.toLowerCase() : '';
     targetList.innerHTML = entries.length ? '' : '<li style="text-align:center; padding:20px; color:#444; font-size:11px;">Empty</li>';
-    
+
     entries.forEach((entry, index) => {
         const li = document.createElement('li');
         li.className = `file-item ${entry.kind === 'directory' ? 'folder' : ''} animate-in`;
         li.title = entry.fullPath || entry.name;
-        
+
         const dateStr = entry.lastModified ? new Date(entry.lastModified).toLocaleDateString([], {month:'numeric', day:'numeric', year:'2-digit'}) : '--';
         const displayName = highlightText(entry.name, term);
-        const pathInfo = entry.relativePath ? `<div class="file-path">${entry.relativePath}</div>` : '';
+        const pathInfo = entry.relativePath ? `<div class="file-path">${escapeHtml(entry.relativePath)}</div>` : '';
 
         li.innerHTML = `
             <div class="file-name">
                 <div class="name-row">
-                    <span>${entry.kind === 'directory' ? '📁' : '📄'}</span>
+                    <span>${entry.kind === 'directory' ? '\ud83d\udcc1' : '\ud83d\udcc4'}</span>
                     <span class="name-text">${displayName}</span>
                 </div>
                 ${pathInfo}
             </div>
             <div class="file-date">${dateStr}</div>
         `;
-        
+
         li.onclick = () => handleEntryClick(entry, false);
         li.onauxclick = (e) => { if (e.button === 1) handleEntryClick(entry, true); };
         li.onmousedown = (e) => { if (e.button === 1) e.preventDefault(); };
@@ -212,7 +230,7 @@ function renderList(entries, targetList = list) {
             e.preventDefault();
             showContextMenu(e.clientX, e.clientY, entry);
         };
-        
+
         targetList.appendChild(li);
     });
 }
@@ -233,7 +251,7 @@ async function performGlobalSearch(term) {
         for await (const entry of handle.values()) {
             if (entry.name.toLowerCase().includes(term)) {
                 const e = entry;
-                e.parentHandle = handle; // Store parent for rename/delete
+                e.parentHandle = handle;
                 if (e.kind === 'file' && e.name.toLowerCase().endsWith('.pdf')) {
                     const file = await e.getFile();
                     e.lastModified = file.lastModified;
@@ -273,13 +291,12 @@ searchBar.oninput = () => {
 function showContextMenu(x, y, entry) {
     rightClickedEntry = entry;
     contextMenu.style.display = 'block';
-    
-    // Adjust position if near edges
+
     const menuWidth = 150;
     const menuHeight = 200;
     const winWidth = window.innerWidth;
     const winHeight = window.innerHeight;
-    
+
     contextMenu.style.left = (x + menuWidth > winWidth ? x - menuWidth : x) + 'px';
     contextMenu.style.top = (y + menuHeight > winHeight ? y - menuHeight : y) + 'px';
 }
@@ -298,16 +315,16 @@ contextMenu.onclick = async (e) => {
             handleRename(rightClickedEntry);
             break;
         case 'copyname':
-            // Copy name without .pdf extension
             const cleanName = rightClickedEntry.name.replace(/\.pdf$/i, '');
             navigator.clipboard.writeText(cleanName);
             break;
         case 'delete':
             if (confirm(`Permanently delete "${rightClickedEntry.name}"?\n\nThis cannot be undone and will not go to the Recycle Bin/Trash.`)) {
                 try {
-                    const status = await currentHandle.requestPermission({ mode: 'readwrite' });
+                    const parent = rightClickedEntry.parentHandle || currentHandle;
+                    const status = await parent.requestPermission({ mode: 'readwrite' });
                     if (status === 'granted') {
-                        await currentHandle.removeEntry(rightClickedEntry.name, { recursive: true });
+                        await parent.removeEntry(rightClickedEntry.name, { recursive: true });
                         loadFiles(currentHandle);
                     }
                 } catch(err) { alert("Delete failed: " + err.message); }
@@ -317,7 +334,6 @@ contextMenu.onclick = async (e) => {
 };
 
 async function handleRename(entry) {
-    // 1. Hydrate if cached (no getFile or move method)
     if (!entry.getFile && !entry.move) {
         const status = await currentHandle.requestPermission({ mode: 'readwrite' });
         if (status === 'granted') {
@@ -330,12 +346,10 @@ async function handleRename(entry) {
 
     let newName = prompt(`Rename "${entry.name}" to:`, entry.name);
     if (newName && newName !== entry.name) {
-        // Ensure .pdf extension for files
         if (entry.kind === 'file' && !newName.toLowerCase().endsWith('.pdf')) {
             newName += '.pdf';
         }
         try {
-            // Use parentHandle if from search, otherwise currentHandle
             const parent = entry.parentHandle || currentHandle;
             const status = await parent.requestPermission({ mode: 'readwrite' });
             if (status !== 'granted') return;
@@ -384,7 +398,6 @@ async function saveRecentFile(entry) {
     const db = await openDB();
     const recent = await getRecentFiles();
     const filtered = recent.filter(f => f.name !== entry.name);
-    // Include path for context
     const path = dirStack.map(h => h.name).join('/');
     filtered.unshift({ name: entry.name, kind: 'file', lastModified: entry.lastModified || Date.now(), relativePath: path });
     db.transaction("cache", "readwrite").objectStore("cache").put(filtered.slice(0, 3), "recent_files");
@@ -401,7 +414,7 @@ async function loadRecentFiles() {
 }
 
 function showUnlockUI(handle) {
-    list.innerHTML = `<div style="padding:40px; text-align:center;"><button id="btn-unlock" class="btn-restore">🔓 Unlock Folder</button></div>`;
+    list.innerHTML = `<div style="padding:40px; text-align:center;"><button id="btn-unlock" class="btn-primary">\ud83d\udd13 Unlock Folder</button></div>`;
     document.getElementById('btn-unlock').onclick = async () => {
         const status = await handle.requestPermission({ mode: 'read' });
         if (status === 'granted') loadFiles(handle);
