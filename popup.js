@@ -10,7 +10,9 @@ const headerCols = document.querySelectorAll('.header-col');
 const contextMenu = document.getElementById('context-menu');
 const globalStatus = document.getElementById('global-status');
 
-const isMac = navigator.platform.toUpperCase().includes('MAC') || navigator.userAgent.includes('Mac');
+const isMac = navigator.userAgentData?.platform === 'macOS'
+    || navigator.platform?.toUpperCase().includes('MAC')
+    || navigator.userAgent.includes('Mac');
 
 let allEntries = [];
 let dirStack = [];
@@ -22,16 +24,21 @@ let rightClickedEntry = null;
 
 // 1. INITIAL LOAD
 document.addEventListener('DOMContentLoaded', async () => {
-    const folderHandle = await getSavedFolder();
-    if (folderHandle) {
-        currentHandle = folderHandle;
-        const cached = await getCache("root");
-        if (cached.length) renderList(cached);
-        loadFiles(folderHandle);
-    } else {
+    try {
+        const folderHandle = await getSavedFolder();
+        if (folderHandle) {
+            currentHandle = folderHandle;
+            const cached = await getCache("root");
+            if (cached.length) renderList(cached);
+            await loadFiles(folderHandle);
+        } else {
+            showNoFolderMessage();
+        }
+        await loadRecentFiles();
+    } catch (err) {
+        console.error("Init failed:", err);
         showNoFolderMessage();
     }
-    loadRecentFiles();
 });
 
 function showNoFolderMessage() {
@@ -162,10 +169,13 @@ async function loadFiles(dirHandle) {
         }
 
         entries.sort((a, b) => {
+            if (a.kind !== b.kind) return a.kind === 'directory' ? -1 : 1;
             let res = 0;
             if (sortBy === 'name') res = a.name.localeCompare(b.name);
-            else if (sortBy === 'date') res = (a.lastModified || 0) - (b.lastModified || 0);
-            if (a.kind !== b.kind) return a.kind === 'directory' ? -1 : 1;
+            else if (sortBy === 'date') {
+                res = (a.lastModified || 0) - (b.lastModified || 0);
+                if (res === 0) res = a.name.localeCompare(b.name);
+            }
             return sortDesc ? -res : res;
         });
 
@@ -286,10 +296,13 @@ async function performGlobalSearch(term) {
     renderList(results);
 }
 
+let searchTimeout = null;
 searchBar.oninput = () => {
+    clearTimeout(searchTimeout);
     const term = searchBar.value.toLowerCase();
     if (term.length > 1) {
-        performGlobalSearch(term);
+        globalStatus.textContent = 'Searching...';
+        searchTimeout = setTimeout(() => performGlobalSearch(term), 300);
     } else {
         globalStatus.textContent = '';
         const filtered = allEntries.filter(e => e.name.toLowerCase().includes(term));
@@ -410,7 +423,9 @@ async function handleEntryClick(entry, isMiddleClick = false) {
     } else {
         const file = await entry.getFile();
         saveRecentFile(entry);
-        chrome.tabs.create({ url: URL.createObjectURL(file) });
+        const blobUrl = URL.createObjectURL(file);
+        chrome.tabs.create({ url: blobUrl });
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
         if (!isMiddleClick) setTimeout(() => window.close(), 100);
     }
 }
@@ -444,14 +459,16 @@ function showUnlockUI(handle) {
 }
 
 async function openDB() {
-    return new Promise(res => {
+    return new Promise((resolve, reject) => {
         const req = indexedDB.open("PDF_Manager_DB", 2);
-        req.onupgradeneeded = (e) => {
+        req.onupgradeneeded = () => {
             const db = req.result;
             if (!db.objectStoreNames.contains("handles")) db.createObjectStore("handles");
             if (!db.objectStoreNames.contains("cache")) db.createObjectStore("cache");
         };
-        req.onsuccess = () => res(req.result);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+        req.onblocked = () => reject(new Error("Database blocked by another connection"));
     });
 }
 async function saveFolder(h) {
