@@ -10,6 +10,8 @@ const headerCols = document.querySelectorAll('.header-col');
 const contextMenu = document.getElementById('context-menu');
 const globalStatus = document.getElementById('global-status');
 
+const isMac = navigator.platform.toUpperCase().includes('MAC') || navigator.userAgent.includes('Mac');
+
 let allEntries = [];
 let dirStack = [];
 let currentHandle = null;
@@ -36,8 +38,12 @@ function showNoFolderMessage() {
     list.innerHTML = '<li style="text-align:center; padding:20px; color:#888; font-size:11px;">No folder selected. Click <b>Change &#128194;</b> to pick one.</li>';
 }
 
-// 2. FOLDER SELECTION — try native picker directly, fallback to helper window
+// 2. FOLDER SELECTION
 btnSelect.onclick = async () => {
+    if (!window.showDirectoryPicker) {
+        alert('Your browser does not support the File System Access API.\nPlease use Chrome, Edge, or another Chromium-based browser (v86+).');
+        return;
+    }
     try {
         const dirHandle = await window.showDirectoryPicker();
         await saveFolder(dirHandle);
@@ -110,7 +116,11 @@ document.addEventListener('keydown', (e) => {
         const items = list.querySelectorAll('.file-item');
         if (selectedIndex >= 0 && items[selectedIndex]) items[selectedIndex].click();
     }
-    else if (e.key === 'Backspace' || (e.key === 'ArrowLeft' && (e.altKey || e.metaKey))) {
+    else if (
+        e.key === 'Backspace' ||
+        (e.key === 'ArrowLeft' && (e.altKey || e.metaKey)) ||
+        (e.key === '[' && (isMac ? e.metaKey : e.ctrlKey))
+    ) {
         if (document.activeElement !== searchBar) {
             e.preventDefault();
             goBack();
@@ -316,7 +326,19 @@ contextMenu.onclick = async (e) => {
             break;
         case 'copyname':
             const cleanName = rightClickedEntry.name.replace(/\.pdf$/i, '');
-            navigator.clipboard.writeText(cleanName);
+            try {
+                await navigator.clipboard.writeText(cleanName);
+            } catch {
+                // Fallback for restricted clipboard contexts
+                const ta = document.createElement('textarea');
+                ta.value = cleanName;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                ta.remove();
+            }
             break;
         case 'delete':
             if (confirm(`Permanently delete "${rightClickedEntry.name}"?\n\nThis cannot be undone and will not go to the Recycle Bin/Trash.`)) {

@@ -11,7 +11,7 @@ A sleek Chrome extension that turns your browser toolbar into a local PDF file e
 ## Features
 
 - **One-Click Folder Selection** — Native OS folder picker opens directly from the popup
-- **File Explorer** — Browse folders and PDF files in a Windows Explorer-style grid layout
+- **File Explorer** — Browse folders and PDF files in an Explorer-style grid layout
 - **Breadcrumb Navigation** — Click any level to jump back instantly
 - **Global Search** — Recursive search across all subfolders, triggered at 2+ characters
 - **Sort by Name or Date** — Toggle ascending/descending; folders always sort first
@@ -22,30 +22,53 @@ A sleek Chrome extension that turns your browser toolbar into a local PDF file e
 - **Offline Cache** — IndexedDB caches folder contents for instant loads
 - **Dark Theme** — Clean, modern UI with smooth animations
 
+## Compatibility
+
+### Supported Browsers
+
+| Browser | Version | Status |
+|---------|---------|--------|
+| Google Chrome | 86+ | Fully supported |
+| Microsoft Edge | 86+ | Fully supported |
+| Brave | 86+ | Fully supported |
+| Opera | 72+ | Fully supported |
+| Vivaldi | 3.4+ | Fully supported |
+| Firefox | -- | Not supported (no File System Access API) |
+| Safari | -- | Not supported (no extension + API support) |
+
+### Supported Operating Systems
+
+| OS | Folder Picker | File Operations | Notes |
+|----|---------------|-----------------|-------|
+| Windows 10/11 | Native Explorer dialog | Full support | |
+| macOS 11+ | Native Finder dialog | Full support | Cmd-based shortcuts |
+| Linux (Ubuntu, Fedora, etc.) | Native GTK/KDE dialog | Full support | |
+| ChromeOS | Native Files app dialog | Full support | |
+
+### Keyboard Shortcuts
+
+| Action | Windows / Linux | macOS |
+|--------|----------------|-------|
+| Navigate file list | `Arrow Up/Down` | `Arrow Up/Down` |
+| Open selected item | `Enter` | `Enter` |
+| Go back | `Backspace` / `Alt+Left` | `Backspace` / `Cmd+Left` / `Cmd+[` |
+| Focus search bar | `/` | `/` |
+
 ## Installation
 
 1. Download or clone this repository
-2. Open `chrome://extensions/` in Chrome
+2. Open `chrome://extensions/` in your Chromium browser (or `edge://extensions/` for Edge)
 3. Enable **Developer mode** (top right toggle)
 4. Click **Load unpacked** and select this folder
 5. Click the extension icon in the toolbar to get started
 
 ## Usage
 
-1. **Click the extension icon** in the Chrome toolbar — the popup opens
+1. **Click the extension icon** in the toolbar — the popup opens
 2. **Click "Change"** to select a folder containing your PDFs
 3. **Browse** your files — click folders to navigate, click PDFs to open them in a new tab
 4. **Search** by typing in the search bar — searches recursively through all subfolders
 5. **Right-click** any file for rename, copy name, or delete options
-
-### Keyboard Shortcuts
-
-| Key | Action |
-|-----|--------|
-| `Arrow Up/Down` | Navigate file list |
-| `Enter` | Open selected file/folder |
-| `Backspace` | Go back to parent folder |
-| `/` | Focus the search bar |
 
 ## Tech Stack
 
