@@ -1,102 +1,140 @@
+<div align="center">
+
 # Local PDF Widget Pro
 
-A sleek Chrome extension that turns your browser toolbar into a local PDF file explorer. Browse, search, rename, and open PDF files from any folder on your computer — all from a compact dark-themed popup.
+**Your local PDF library, one click away.**
 
-![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4?logo=googlechrome&logoColor=white)
-![Manifest V3](https://img.shields.io/badge/Manifest-V3-34A853)
-![No Dependencies](https://img.shields.io/badge/Dependencies-None-green)
+A Chrome extension that turns your browser toolbar into a sleek, dark-themed PDF file explorer.
+Browse, search, rename, and open PDFs from any folder on your computer — without ever leaving your browser.
+
+[![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://developer.chrome.com/docs/extensions/)
+[![Manifest V3](https://img.shields.io/badge/Manifest-V3-34A853?style=for-the-badge&logo=google&logoColor=white)](https://developer.chrome.com/docs/extensions/develop/migrate/what-is-mv3)
+[![No Dependencies](https://img.shields.io/badge/Dependencies-Zero-22c55e?style=for-the-badge)](#tech-stack)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 
 ---
 
+<br>
+
+> **100% local. Zero network access. Your files never leave your machine.**
+
+<br>
+
+</div>
+
 ## Features
 
-- **One-Click Folder Selection** — Native OS folder picker opens directly from the popup
-- **File Explorer** — Browse folders and PDF files in an Explorer-style grid layout
-- **Breadcrumb Navigation** — Click any level to jump back instantly
-- **Global Search** — Recursive search across all subfolders, triggered at 2+ characters
-- **Sort by Name or Date** — Toggle ascending/descending; folders always sort first
-- **Context Menu** — Right-click for Open, Rename, Copy Name, or Delete
-- **Recent Files** — Last 3 opened PDFs are pinned at the top for quick access
-- **Keyboard Navigation** — Arrow keys to browse, Enter to open, Backspace to go back, `/` to search
-- **Permission Recovery** — Unlock button when file access needs re-authorization
-- **Offline Cache** — IndexedDB caches folder contents for instant loads
-- **Dark Theme** — Clean, modern UI with smooth animations
+| | Feature | Description |
+|---|---------|-------------|
+| :file_folder: | **File Explorer** | Browse folders and PDFs in an Explorer-style grid layout with breadcrumb navigation |
+| :mag: | **Global Search** | Recursive search across all subfolders, triggered at 2+ characters with 300ms debounce |
+| :arrows_counterclockwise: | **Sort & Filter** | Sort by name or date, toggle asc/desc — folders always float to the top |
+| :computer_mouse: | **Context Menu** | Right-click for Open, Rename, Copy Name, or Delete |
+| :clock3: | **Recent Files** | Last 3 opened PDFs pinned at the top for instant re-access |
+| :keyboard: | **Keyboard-First** | Arrow keys to navigate, Enter to open, Backspace to go back, `/` to search |
+| :lock: | **Permission Recovery** | One-click unlock when file access needs re-authorization |
+| :zap: | **Offline Cache** | IndexedDB caches folder contents for instant loads — even when permissions expire |
+| :new_moon: | **Dark Theme** | Clean, modern UI with smooth animations and custom scrollbars |
 
-## Compatibility
+---
 
-### Supported Browsers
+## Quick Start
 
-| Browser | Version | Status |
-|---------|---------|--------|
-| Google Chrome | 86+ | Fully supported |
-| Microsoft Edge | 86+ | Fully supported |
-| Brave | 86+ | Fully supported |
-| Opera | 72+ | Fully supported |
-| Vivaldi | 3.4+ | Fully supported |
-| Firefox | -- | Not supported (no File System Access API) |
-| Safari | -- | Not supported (no extension + API support) |
+### Installation
 
-### Supported Operating Systems
+1. **Download** or clone this repository
+2. Open **`chrome://extensions/`** in your browser
+3. Enable **Developer mode** (top-right toggle)
+4. Click **Load unpacked** and select the `PDFwidgetExtension/` folder
+5. Pin the extension icon to your toolbar
 
-| OS | Folder Picker | File Operations | Notes |
-|----|---------------|-----------------|-------|
-| Windows 10/11 | Native Explorer dialog | Full support | |
-| macOS 11+ | Native Finder dialog | Full support | Cmd-based shortcuts |
-| Linux (Ubuntu, Fedora, etc.) | Native GTK/KDE dialog | Full support | |
-| ChromeOS | Native Files app dialog | Full support | |
+### Usage
 
-### Keyboard Shortcuts
+```
+1. Click the extension icon         ->  Popup opens
+2. Click "Change"                   ->  Select a folder with your PDFs
+3. Click any PDF                    ->  Opens in a new tab
+4. Type in the search bar           ->  Searches recursively through all subfolders
+5. Right-click any file             ->  Rename, copy name, or delete
+```
+
+---
+
+## Keyboard Shortcuts
 
 | Action | Windows / Linux | macOS |
-|--------|----------------|-------|
-| Navigate file list | `Arrow Up/Down` | `Arrow Up/Down` |
+|:-------|:----------------|:------|
+| Navigate file list | `Arrow Up` / `Arrow Down` | `Arrow Up` / `Arrow Down` |
 | Open selected item | `Enter` | `Enter` |
 | Go back | `Backspace` / `Alt+Left` | `Backspace` / `Cmd+Left` / `Cmd+[` |
 | Focus search bar | `/` | `/` |
 
-## Installation
+---
 
-1. Download or clone this repository
-2. Open `chrome://extensions/` in your Chromium browser (or `edge://extensions/` for Edge)
-3. Enable **Developer mode** (top right toggle)
-4. Click **Load unpacked** and select this folder
-5. Click the extension icon in the toolbar to get started
+## Compatibility
 
-## Usage
+### Browsers
 
-1. **Click the extension icon** in the toolbar — the popup opens
-2. **Click "Change"** to select a folder containing your PDFs
-3. **Browse** your files — click folders to navigate, click PDFs to open them in a new tab
-4. **Search** by typing in the search bar — searches recursively through all subfolders
-5. **Right-click** any file for rename, copy name, or delete options
+| Browser | Version | Status |
+|:--------|:--------|:-------|
+| Google Chrome | 86+ | :white_check_mark: Fully supported |
+| Microsoft Edge | 86+ | :white_check_mark: Fully supported |
+| Brave | 86+ | :white_check_mark: Fully supported |
+| Opera | 72+ | :white_check_mark: Fully supported |
+| Vivaldi | 3.4+ | :white_check_mark: Fully supported |
+| Firefox | — | :x: No File System Access API |
+| Safari | — | :x: No extension + API support |
+
+### Operating Systems
+
+| OS | Folder Picker | File Operations |
+|:---|:--------------|:----------------|
+| Windows 10/11 | Native Explorer dialog | Full support |
+| macOS 11+ | Native Finder dialog | Full support |
+| Linux (Ubuntu, Fedora, etc.) | Native GTK/KDE dialog | Full support |
+| ChromeOS | Native Files app dialog | Full support |
+
+---
 
 ## Tech Stack
 
-- **Chrome Extension Manifest V3** — Modern extension architecture
-- **Vanilla JavaScript** — No frameworks, no build step, no dependencies
-- **File System Access API** — Native OS file/folder operations
-- **IndexedDB** — Persistent storage for folder handles, cache, and recent files
-- **CSS Custom Properties** — Consistent dark theme
+| Technology | Purpose |
+|:-----------|:--------|
+| **Chrome Extension Manifest V3** | Modern extension architecture |
+| **Vanilla JavaScript (ES6+)** | No frameworks, no build step, no dependencies |
+| **File System Access API** | Native OS file and folder operations |
+| **IndexedDB** | Persistent storage for folder handles, file cache, and recents |
+| **CSS Custom Properties** | Consistent dark theme with smooth transitions |
 
 ## Project Structure
 
 ```
 PDFwidgetExtension/
-  manifest.json    — Extension config (Manifest V3)
-  background.js    — Service worker placeholder
-  popup.html       — UI markup + CSS (dark theme, grid layout)
-  popup.js         — All application logic
+  manifest.json   Extension config (Manifest V3, Chrome 86+)
+  background.js   Service worker (placeholder)
+  popup.html      UI markup + embedded CSS (dark theme, CSS Grid layout)
+  popup.js        All application logic (~550 lines)
 ```
 
 ## Permissions
 
-| Permission | Why |
-|-----------|-----|
+| Permission | Reason |
+|:-----------|:-------|
 | `storage` | Save extension preferences |
 | `tabs` | Open PDFs in new browser tabs |
 
-No network access. No data leaves your machine. Everything runs locally.
+No host permissions. No remote requests. No analytics. **Everything runs locally.**
+
+---
+
+<div align="center">
 
 ## License
 
 MIT
+
+<br>
+
+Made with :heart: for PDF hoarders everywhere.
+
+</div>
