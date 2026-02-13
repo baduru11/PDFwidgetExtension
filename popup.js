@@ -23,14 +23,28 @@ let selectedIndex = -1;
 let rightClickedEntry = null;
 
 // 1. INITIAL LOAD
+const isPickerMode = new URLSearchParams(window.location.search).has('picker');
+
 document.addEventListener('DOMContentLoaded', async () => {
+    if (isPickerMode) return runPickerMode();
     try {
         const folderHandle = await getSavedFolder();
         if (folderHandle) {
             currentHandle = folderHandle;
+            // Always show cached data first (populated by the helper window)
             const cached = await getCache("root");
             if (cached.length) renderList(cached);
-            await loadFiles(folderHandle);
+            // Try live access — may fail if permission expired
+            try {
+                const perm = await folderHandle.queryPermission({ mode: 'read' });
+                if (perm === 'granted') {
+                    await loadFiles(folderHandle);
+                } else if (!cached.length) {
+                    showUnlockUI(folderHandle);
+                }
+            } catch (e) {
+                if (!cached.length) showUnlockUI(folderHandle);
+            }
         } else {
             showNoFolderMessage();
         }
@@ -46,23 +60,62 @@ function showNoFolderMessage() {
 }
 
 // 2. FOLDER SELECTION
-btnSelect.onclick = async () => {
-    if (!window.showDirectoryPicker) {
-        alert('Your browser does not support the File System Access API.\nPlease use Chrome, Edge, or another Chromium-based browser (v86+).');
-        return;
-    }
-    try {
-        const dirHandle = await window.showDirectoryPicker();
-        await saveFolder(dirHandle);
-        currentHandle = dirHandle;
-        dirStack = [];
-        searchBar.value = '';
-        globalStatus.textContent = '';
-        loadFiles(dirHandle);
-    } catch (err) {
-        // User cancelled the dialog — do nothing
-    }
+// Chrome kills extension popups when native dialogs steal focus,
+// so we open a tiny helper window where the picker can run safely.
+btnSelect.onclick = () => {
+    chrome.windows.create({
+        url: chrome.runtime.getURL('popup.html?picker=1'),
+        type: 'popup', width: 360, height: 140, focused: true
+    });
 };
+
+function runPickerMode() {
+    document.body.style.cssText = 'width:auto;height:auto;display:flex;align-items:center;justify-content:center;background:#121212;margin:0;';
+    document.body.innerHTML = `
+        <div style="text-align:center;padding:20px;">
+            <button id="btn-pick" autofocus style="
+                background:#0a84ff;color:#fff;border:none;padding:12px 28px;
+                border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;
+                font-family:system-ui,sans-serif;
+            ">Select Folder \ud83d\udcc2</button>
+            <div id="pick-status" style="margin-top:12px;font-size:12px;color:#888;font-family:system-ui,sans-serif;"></div>
+        </div>`;
+    document.getElementById('btn-pick').onclick = async () => {
+        const status = document.getElementById('pick-status');
+        try {
+            const dirHandle = await window.showDirectoryPicker();
+            status.textContent = 'Saving folder...';
+            await saveFolder(dirHandle);
+
+            // Cache file listing while we have permission, so the popup
+            // can show files immediately without needing its own permission
+            status.textContent = 'Scanning files...';
+            const entries = [];
+            for await (const entry of dirHandle.values()) {
+                if (entry.kind === 'directory' || (entry.kind === 'file' && entry.name.toLowerCase().endsWith('.pdf'))) {
+                    let lastModified = 0;
+                    if (entry.kind === 'file') {
+                        const file = await entry.getFile();
+                        lastModified = file.lastModified;
+                    }
+                    entries.push({ name: entry.name, kind: entry.kind, lastModified });
+                }
+            }
+            await saveCache("root", entries);
+
+            status.style.color = '#34c759';
+            status.textContent = '\u2713 Done! Reopen the widget.';
+            setTimeout(() => window.close(), 800);
+        } catch (err) {
+            if (err.name === 'AbortError') {
+                status.textContent = 'Cancelled. Try again or close this window.';
+            } else {
+                status.style.color = '#ff453a';
+                status.textContent = 'Error: ' + err.message;
+            }
+        }
+    };
+}
 
 btnBack.onclick = () => goBack();
 btnRefresh.onclick = async () => {
@@ -451,10 +504,17 @@ async function loadRecentFiles() {
 }
 
 function showUnlockUI(handle) {
-    list.innerHTML = `<div style="padding:40px; text-align:center;"><button id="btn-unlock" class="btn-primary">\ud83d\udd13 Unlock Folder</button></div>`;
-    document.getElementById('btn-unlock').onclick = async () => {
-        const status = await handle.requestPermission({ mode: 'read' });
-        if (status === 'granted') loadFiles(handle);
+    list.innerHTML = `<div style="padding:40px; text-align:center;">
+        <p style="color:#888;font-size:11px;margin-bottom:12px;">Folder access expired. Re-grant permission:</p>
+        <button id="btn-unlock" class="btn-primary">\ud83d\udd13 Unlock Folder</button>
+    </div>`;
+    document.getElementById('btn-unlock').onclick = () => {
+        // requestPermission() kills the popup (same as showDirectoryPicker),
+        // so re-grant via the helper window which survives focus loss
+        chrome.windows.create({
+            url: chrome.runtime.getURL('popup.html?picker=1'),
+            type: 'popup', width: 360, height: 140, focused: true
+        });
     };
 }
 
@@ -472,7 +532,13 @@ async function openDB() {
     });
 }
 async function saveFolder(h) {
-    const db = await openDB(); db.transaction("handles", "readwrite").objectStore("handles").put(h, "lastFolder");
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction("handles", "readwrite");
+        tx.objectStore("handles").put(h, "lastFolder");
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
 }
 async function getSavedFolder() {
     const db = await openDB(); return new Promise(res => db.transaction("handles").objectStore("handles").get("lastFolder").onsuccess = e => res(e.target.result));
