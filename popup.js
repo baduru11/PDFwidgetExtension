@@ -83,7 +83,7 @@ function runPickerMode() {
     document.getElementById('btn-pick').onclick = async () => {
         const status = document.getElementById('pick-status');
         try {
-            const dirHandle = await window.showDirectoryPicker();
+            const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
             status.textContent = 'Saving folder...';
             await saveFolder(dirHandle);
 
@@ -473,8 +473,19 @@ async function handleRename(entry) {
         }
         try {
             const parent = entry.parentHandle || currentHandle;
-            const status = await parent.requestPermission({ mode: 'readwrite' });
-            if (status !== 'granted') return;
+            // prompt() blocks the thread and can expire Chrome's transient
+            // user activation, so fall back to queryPermission (no activation
+            // needed) — readwrite is typically already granted by the picker
+            let status;
+            try {
+                status = await parent.requestPermission({ mode: 'readwrite' });
+            } catch {
+                status = await parent.queryPermission({ mode: 'readwrite' });
+            }
+            if (status !== 'granted') {
+                alert("Write permission expired. Please re-select the folder via Unlock.");
+                return;
+            }
 
             if (entry.move) {
                 await entry.move(newName);
