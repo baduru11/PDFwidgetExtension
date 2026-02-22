@@ -279,7 +279,7 @@ function renderList(entries, targetList = list) {
     entries.forEach((entry, index) => {
         const li = document.createElement('li');
         li.className = `file-item ${entry.kind === 'directory' ? 'folder' : ''} animate-in`;
-        li.title = entry.fullPath || entry.name;
+        li.title = entry.name;
 
         const dateStr = entry.lastModified ? new Date(entry.lastModified).toLocaleDateString([], {month:'numeric', day:'numeric', year:'2-digit'}) : '--';
         const displayName = highlightText(entry.name, term);
@@ -312,6 +312,7 @@ function renderList(entries, targetList = list) {
 async function performGlobalSearch(term) {
     if (!term) {
         globalStatus.textContent = '';
+        selectedIndex = -1;
         renderList(allEntries);
         return;
     }
@@ -319,6 +320,7 @@ async function performGlobalSearch(term) {
     globalStatus.textContent = 'Searching...';
     const results = [];
     const root = dirStack[0] || currentHandle;
+    if (!root) return;
 
     async function search(handle, relativePath = '') {
         for await (const entry of handle.values()) {
@@ -346,6 +348,7 @@ async function performGlobalSearch(term) {
 
     await search(root);
     globalStatus.textContent = `${results.length} found`;
+    selectedIndex = -1;
     renderList(results);
 }
 
@@ -358,6 +361,7 @@ searchBar.oninput = () => {
         searchTimeout = setTimeout(() => performGlobalSearch(term), 300);
     } else {
         globalStatus.textContent = '';
+        selectedIndex = -1;
         const filtered = allEntries.filter(e => e.name.toLowerCase().includes(term));
         renderList(filtered);
     }
@@ -409,12 +413,30 @@ contextMenu.onclick = async (e) => {
         case 'delete':
             if (confirm(`Permanently delete "${rightClickedEntry.name}"?\n\nThis cannot be undone and will not go to the Recycle Bin/Trash.`)) {
                 try {
-                    const parent = rightClickedEntry.parentHandle || currentHandle;
-                    const status = await parent.requestPermission({ mode: 'readwrite' });
-                    if (status === 'granted') {
-                        await parent.removeEntry(rightClickedEntry.name, { recursive: true });
-                        loadFiles(currentHandle);
+                    let parent;
+                    if ('relativePath' in rightClickedEntry && !rightClickedEntry.parentHandle) {
+                        parent = await resolveRecentParent(rightClickedEntry, 'readwrite');
+                    } else {
+                        parent = rightClickedEntry.parentHandle || currentHandle;
+                        const status = await parent.requestPermission({ mode: 'readwrite' });
+                        if (status !== 'granted') break;
                     }
+                    if (!parent) break;
+                    await parent.removeEntry(rightClickedEntry.name, { recursive: true });
+                    // Remove from recent files if it was a recent entry
+                    if ('relativePath' in rightClickedEntry) {
+                        const recent = await getRecentFiles();
+                        const updated = recent.filter(f => f.name !== rightClickedEntry.name);
+                        const db = await openDB();
+                        await new Promise((resolve, reject) => {
+                            const tx = db.transaction("cache", "readwrite");
+                            tx.objectStore("cache").put(updated, "recent_files");
+                            tx.oncomplete = () => resolve();
+                            tx.onerror = () => reject(tx.error);
+                        });
+                        await loadRecentFiles();
+                    }
+                    await loadFiles(currentHandle);
                 } catch(err) { alert("Delete failed: " + err.message); }
             }
             break;
@@ -423,6 +445,18 @@ contextMenu.onclick = async (e) => {
 
 async function handleRename(entry) {
     if (!entry.getFile && !entry.move) {
+        // Recent entry — resolve parent via relativePath
+        if ('relativePath' in entry) {
+            const parent = await resolveRecentParent(entry, 'readwrite');
+            if (!parent) return;
+            try {
+                const real = await parent.getFileHandle(entry.name);
+                real.parentHandle = parent;
+                handleRename(real);
+            } catch { return; }
+            return;
+        }
+        // Cached entry from current directory
         const status = await currentHandle.requestPermission({ mode: 'readwrite' });
         if (status === 'granted') {
             await loadFiles(currentHandle);
@@ -455,13 +489,48 @@ async function handleRename(entry) {
                 alert("Folder renaming not supported in this browser.");
                 return;
             }
-            loadFiles(currentHandle);
+            await loadFiles(currentHandle);
         } catch (err) { alert("Rename error: " + err.message); }
     }
 }
 
+// Resolve the parent directory of a recent entry by traversing relativePath from root
+async function resolveRecentParent(entry, mode = 'read') {
+    const rootHandle = dirStack[0] || currentHandle;
+    try {
+        const status = await rootHandle.requestPermission({ mode });
+        if (status !== 'granted') return null;
+    } catch { return null; }
+
+    let targetDir = rootHandle;
+    if (entry.relativePath) {
+        for (const part of entry.relativePath.split('/').filter(Boolean)) {
+            try {
+                targetDir = await targetDir.getDirectoryHandle(part);
+            } catch { return null; }
+        }
+    }
+    return targetDir;
+}
+
 async function handleEntryClick(entry, isMiddleClick = false) {
     if (!entry.queryPermission) {
+        // Recent entry with stored path — traverse to the correct parent directory
+        if ('relativePath' in entry) {
+            const parent = await resolveRecentParent(entry);
+            if (!parent) return;
+            try {
+                const fileHandle = await parent.getFileHandle(entry.name);
+                const file = await fileHandle.getFile();
+                const blobUrl = URL.createObjectURL(file);
+                chrome.tabs.create({ url: blobUrl });
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+                if (!isMiddleClick) setTimeout(() => window.close(), 100);
+            } catch { return; }
+            return;
+        }
+
+        // Cached entry from current directory — reload and resolve to real handle
         const status = await currentHandle.requestPermission({ mode: 'read' });
         if (status === 'granted') {
             await loadFiles(currentHandle);
@@ -475,10 +544,10 @@ async function handleEntryClick(entry, isMiddleClick = false) {
         dirStack.push(currentHandle); currentHandle = entry; loadFiles(entry);
     } else {
         const file = await entry.getFile();
-        saveRecentFile(entry);
+        await saveRecentFile(entry);
         const blobUrl = URL.createObjectURL(file);
         chrome.tabs.create({ url: blobUrl });
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
         if (!isMiddleClick) setTimeout(() => window.close(), 100);
     }
 }
@@ -488,10 +557,17 @@ async function saveRecentFile(entry) {
     const db = await openDB();
     const recent = await getRecentFiles();
     const filtered = recent.filter(f => f.name !== entry.name);
-    const path = dirStack.map(h => h.name).join('/');
+    // Path from root to the file's parent: skip root (dirStack[0]), include currentHandle
+    const pathParts = dirStack.slice(1).concat(dirStack.length > 0 ? [currentHandle] : []);
+    const path = pathParts.map(h => h.name).join('/');
     filtered.unshift({ name: entry.name, kind: 'file', lastModified: entry.lastModified || Date.now(), relativePath: path });
-    db.transaction("cache", "readwrite").objectStore("cache").put(filtered.slice(0, 3), "recent_files");
-    loadRecentFiles();
+    await new Promise((resolve, reject) => {
+        const tx = db.transaction("cache", "readwrite");
+        tx.objectStore("cache").put(filtered.slice(0, 3), "recent_files");
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+    await loadRecentFiles();
 }
 async function getRecentFiles() {
     const db = await openDB();
@@ -545,7 +621,12 @@ async function getSavedFolder() {
 }
 async function saveCache(path, entries) {
     const db = await openDB();
-    db.transaction("cache", "readwrite").objectStore("cache").put(entries.map(e => ({ name: e.name, kind: e.kind, lastModified: e.lastModified || 0 })), path);
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction("cache", "readwrite");
+        tx.objectStore("cache").put(entries.map(e => ({ name: e.name, kind: e.kind, lastModified: e.lastModified || 0 })), path);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
 }
 async function getCache(path) {
     const db = await openDB(); return new Promise(res => db.transaction("cache").objectStore("cache").get(path).onsuccess = e => res(e.target.result || []));
