@@ -126,15 +126,13 @@ PDFwidgetExtension/
 No host permissions. No remote requests. No analytics. **Everything runs locally.**
 
 ---
-
+S
 <div align="center">
 
 ## License
 
 MIT
 
-<br>
 
-Made with :heart: for PDF hoarders everywhere.
 
 </div>
